@@ -35,4 +35,4 @@ Generate Allure report:
 allure generate reports/allure-results -o reports/allure-report --clean
 allure open reports/allure-report
 
-![Automation Tests](https://github.com/YOUR_USERNAME/YOUR_REPO/actions/workflows/automation.yml/badge.svg)
+![Automation Tests](https://github.com/kiran-adnan/selenium-pytest-bdd-bugtracker/actions/workflows/automation.yml/badge.svg)
