@@ -11,7 +11,7 @@ Feature: Bug Tracker
     Given the bug tracker app is open
     And I add a bug with title "Save crashes" and severity "Critical"
     When I set status of bug titled "Save crashes" to "Closed"
-    #Then the status of bug titled "Save crashes" should be "Closed" 
-    Then the status of bug titled "Save crashes" should be "Open"
+    Then the status of bug titled "Save crashes" should be "Closed" 
+    #Then the status of bug titled "Save crashes" should be "Open"
     When I delete bug titled "Save crashes"
     Then I should not see a bug titled "Save crashes" in the list
