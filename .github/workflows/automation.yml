@@ -67,13 +67,14 @@ jobs:
       - name: Generate Allure HTML report
         if: always()
         run: |
-          allure generate reports/allure-results -o reports/allure-report --clean
+           rm -rf reports/allure-report
+           allure generate reports/allure-results -o reports/allure-report
 
       - name: Upload Pages artifact
         if: always()
         uses: actions/upload-pages-artifact@v3
         with:
-          path: reports/allure-report
+         path: reports/allure-report
 
       - name: Upload HTML report artifact
         if: always()
