@@ -34,6 +34,11 @@ jobs:
         run: |
           python backend/app.py > backend.log 2>&1 &
           sleep 5
+          cat backend.log
+
+      - name: Check backend health
+        run: |
+          curl http://127.0.0.1:5000/health    
 
       - name: Run API tests
         run: |
