@@ -5,6 +5,12 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
 
 jobs:
   run-tests:
@@ -13,7 +19,7 @@ jobs:
     env:
       HEADLESS: "true"
       API_BASE_URL: "http://127.0.0.1:5000"
-      BASE_URL: file://${{ github.workspace }}/app/bug_tracker.html
+      BASE_URL: "file://${{ github.workspace }}/app/bug_tracker.html"
 
     steps:
       - name: Checkout repository
@@ -30,6 +36,16 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
+      - name: Install Allure CLI
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y default-jre
+          curl -Lo allure.tgz https://github.com/allure-framework/allure2/releases/latest/download/allure-2.34.1.tgz
+          tar -xzf allure.tgz
+          sudo mv allure-2.34.1 /opt/allure
+          sudo ln -s /opt/allure/bin/allure /usr/local/bin/allure
+          allure --version
+
       - name: Start backend server
         run: |
           python backend/app.py > backend.log 2>&1 &
@@ -38,7 +54,7 @@ jobs:
 
       - name: Check backend health
         run: |
-          curl http://127.0.0.1:5000/health    
+          curl http://127.0.0.1:5000/health
 
       - name: Run API tests
         run: |
@@ -48,14 +64,18 @@ jobs:
         run: |
           python -m pytest -v steps --alluredir=reports/allure-results
 
-      - name: Upload Allure results
+      - name: Generate Allure HTML report
         if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: allure-results
-          path: reports/allure-results
+        run: |
+          allure generate reports/allure-results -o reports/allure-report --clean
 
-      - name: Upload HTML report
+      - name: Upload Pages artifact
+        if: success() || failure()
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: reports/allure-report
+
+      - name: Upload HTML report artifact
         if: always()
         uses: actions/upload-artifact@v4
         with:
@@ -75,3 +95,16 @@ jobs:
         with:
           name: backend-log
           path: backend.log
+
+  deploy-pages:
+    if: github.ref == 'refs/heads/main'
+    needs: run-tests
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Deploy Allure report to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
