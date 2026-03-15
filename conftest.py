@@ -3,6 +3,7 @@ from pathlib import Path
 
 import pytest
 from dotenv import load_dotenv
+from requests import options
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options as ChromeOptions
 from selenium.webdriver.chrome.service import Service as ChromeService
@@ -56,6 +57,8 @@ def driver(request):
         options.add_argument("--headless=new")
 
     options.add_argument("--window-size=1400,900")
+    options.add_argument("--no-sandbox")
+    options.add_argument("--disable-dev-shm-usage")
     logger.info("Launching Chrome | headless=%s", headless)
 
     # Helpful for local HTML file + calling localhost APIs
