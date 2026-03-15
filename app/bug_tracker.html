@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Mini Bug Tracker</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 24px; }
+    .card { border: 1px solid #ddd; border-radius: 10px; padding: 16px; max-width: 980px; }
+    .row { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 10px; }
+    input, select, button { padding: 10px; border-radius: 8px; border: 1px solid #ccc; }
+    input { flex: 1; min-width: 240px; }
+    select { min-width: 170px; }
+    button { cursor: pointer; border: none; background: #111; color: #fff; }
+    button.secondary { background: #666; }
+    .error { color: #b00020; margin: 6px 0 0; }
+    table { width: 100%; border-collapse: collapse; margin-top: 14px; }
+    th, td { padding: 10px; border-bottom: 1px solid #eee; text-align: left; }
+    .pill { display: inline-block; padding: 4px 10px; border-radius: 999px; font-size: 12px; border: 1px solid #ddd; }
+    .topbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+    code { background: #f6f6f6; padding: 2px 6px; border-radius: 6px; }
+  </style>
+</head>
+<body>
+  <div class="topbar">
+    <h2>Mini Bug Tracker</h2>
+    <div>API: <code id="apiBaseLabel"></code></div>
+  </div>
+
+  <div class="card">
+    <div class="row">
+      <input id="bugTitle" data-testid="bug-title-input" placeholder="Bug title (required)" />
+      <select id="severity" data-testid="severity-select">
+        <option value="">Severity (required)</option>
+        <option>Low</option>
+        <option>Medium</option>
+        <option>High</option>
+        <option>Critical</option>
+      </select>
+      <select id="status" data-testid="status-select">
+        <option>Open</option>
+        <option>In Progress</option>
+        <option>Closed</option>
+      </select>
+      <button id="addBugBtn" data-testid="add-bug">Add Bug</button>
+      <button id="refreshBtn" class="secondary" data-testid="refresh">Refresh</button>
+    </div>
+    <div id="errorMsg" class="error" style="display:none;"></div>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Id</th>
+          <th>Title</th>
+          <th>Severity</th>
+          <th>Status</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody id="bugsBody" data-testid="bugs-body"></tbody>
+    </table>
+  </div>
+
+  <script>
+    // Change if needed
+    const API_BASE = "http://127.0.0.1:5000";
+    document.getElementById("apiBaseLabel").textContent = API_BASE;
+
+    const titleEl = document.getElementById("bugTitle");
+    const sevEl = document.getElementById("severity");
+    const statusEl = document.getElementById("status");
+    const addBtn = document.getElementById("addBugBtn");
+    const refreshBtn = document.getElementById("refreshBtn");
+    const errorMsg = document.getElementById("errorMsg");
+    const bodyEl = document.getElementById("bugsBody");
+
+    function showError(msg) {
+      errorMsg.textContent = msg;
+      errorMsg.style.display = "block";
+    }
+    function hideError() {
+      errorMsg.textContent = "";
+      errorMsg.style.display = "none";
+    }
+
+    async function api(path, options = {}) {
+      const res = await fetch(API_BASE + path, {
+        headers: { "Content-Type": "application/json" },
+        ...options
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || ("HTTP " + res.status));
+      }
+      if (res.status === 204) return null;
+      return await res.json();
+    }
+
+    function rowTemplate(bug) {
+      const tr = document.createElement("tr");
+      tr.setAttribute("data-testid", "bug-row");
+      tr.setAttribute("data-bug-id", bug.id);
+
+      tr.innerHTML = `
+        <td data-testid="bug-id">${bug.id}</td>
+        <td data-testid="bug-title">${bug.title}</td>
+        <td><span class="pill" data-testid="bug-severity">${bug.severity}</span></td>
+        <td>
+          <select data-testid="bug-status">
+            <option>Open</option>
+            <option>In Progress</option>
+            <option>Closed</option>
+          </select>
+        </td>
+        <td>
+          <button class="secondary" data-testid="delete-bug">Delete</button>
+        </td>
+      `;
+
+      const statusSel = tr.querySelector('[data-testid="bug-status"]');
+      statusSel.value = bug.status;
+
+      statusSel.addEventListener("change", async () => {
+        try {
+          hideError();
+          await api(`/bugs/${bug.id}`, {
+            method: "PUT",
+            body: JSON.stringify({ status: statusSel.value })
+          });
+        } catch (e) {
+          showError(e.message);
+        }
+      });
+
+      const delBtn = tr.querySelector('[data-testid="delete-bug"]');
+      delBtn.addEventListener("click", async () => {
+        try {
+          hideError();
+          await api(`/bugs/${bug.id}`, { method: "DELETE" });
+          await loadBugs();
+        } catch (e) {
+          showError(e.message);
+        }
+      });
+
+      return tr;
+    }
+
+    async function loadBugs() {
+      const bugs = await api("/bugs");
+      bodyEl.innerHTML = "";
+      bugs.forEach(b => bodyEl.appendChild(rowTemplate(b)));
+    }
+
+    addBtn.addEventListener("click", async () => {
+      const title = titleEl.value.trim();
+      const severity = sevEl.value.trim();
+      const status = statusEl.value;
+
+      try {
+        hideError();
+        await api("/bugs", {
+          method: "POST",
+          body: JSON.stringify({ title, severity, status })
+        });
+        titleEl.value = "";
+        sevEl.value = "";
+        statusEl.value = "Open";
+        await loadBugs();
+      } catch (e) {
+        showError(e.message);
+      }
+    });
+
+    refreshBtn.addEventListener("click", async () => {
+      try {
+        hideError();
+        await loadBugs();
+      } catch (e) {
+        showError(e.message);
+      }
+    });
+
+    // initial load
+    loadBugs().catch(e => showError(e.message));
+  </script>
+</body>
+</html>
